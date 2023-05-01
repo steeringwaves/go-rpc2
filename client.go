@@ -15,6 +15,7 @@ import (
 // with a single Client, and a Client may be used by
 // multiple goroutines simultaneously.
 type Client struct {
+	id         uint64
 	mutex      sync.Mutex // protects pending, seq, request
 	sending    sync.Mutex
 	request    Request // temp area used in send()
@@ -34,20 +35,26 @@ type Client struct {
 // set of services at the other end of the connection.
 // It adds a buffer to the write side of the connection so
 // the header and payload are sent as a unit.
-func NewClient(conn io.ReadWriteCloser) *Client {
-	return NewClientWithCodec(NewGobCodec(conn))
+func NewClient(conn io.ReadWriteCloser, id uint64) *Client {
+	return NewClientWithCodec(NewGobCodec(conn), id)
 }
 
 // NewClientWithCodec is like NewClient but uses the specified
 // codec to encode requests and decode responses.
-func NewClientWithCodec(codec Codec) *Client {
+func NewClientWithCodec(codec Codec, id uint64) *Client {
 	return &Client{
+		id:         id,
 		codec:      codec,
 		pending:    make(map[uint64]*Call),
 		handlers:   make(map[string]*handler),
 		disconnect: make(chan struct{}),
 		seq:        1, // 0 means notification.
 	}
+}
+
+// Get the client's id.
+func (c *Client) ID() uint64 {
+	return c.id
 }
 
 // SetBlocking puts the client in blocking mode.
