@@ -139,13 +139,15 @@ func (s *Server) OnDisconnect(f func(*Client)) {
 // for each incoming connection.  Accept blocks; the caller typically
 // invokes it in a go statement.
 func (s *Server) Accept(lis net.Listener) {
+	var id uint64 = 0
 	for {
 		conn, err := lis.Accept()
 		if err != nil {
 			log.Print("rpc.Serve: accept:", err.Error())
 			return
 		}
-		go s.ServeConn(conn)
+		go s.ServeConn(conn, id)
+		id++
 	}
 }
 
@@ -154,23 +156,23 @@ func (s *Server) Accept(lis net.Listener) {
 // The caller typically invokes ServeConn in a go statement.
 // ServeConn uses the gob wire format (see package gob) on the
 // connection.  To use an alternate codec, use ServeCodec.
-func (s *Server) ServeConn(conn io.ReadWriteCloser) {
-	s.ServeCodec(NewGobCodec(conn))
+func (s *Server) ServeConn(conn io.ReadWriteCloser, id uint64) {
+	s.ServeCodec(NewGobCodec(conn), id)
 }
 
 // ServeCodec is like ServeConn but uses the specified codec to
 // decode requests and encode responses.
-func (s *Server) ServeCodec(codec Codec) {
-	s.ServeCodecWithState(codec, NewState())
+func (s *Server) ServeCodec(codec Codec, id uint64) {
+	s.ServeCodecWithState(codec, NewState(), id)
 }
 
 // ServeCodecWithState is like ServeCodec but also gives the ability to
 // associate a state variable with the client that persists across RPC calls.
-func (s *Server) ServeCodecWithState(codec Codec, state *State) {
+func (s *Server) ServeCodecWithState(codec Codec, state *State, id uint64) {
 	defer codec.Close()
 
 	// Client also handles the incoming connections.
-	c := NewClientWithCodec(codec)
+	c := NewClientWithCodec(codec, id)
 	c.server = true
 	c.handlers = s.handlers
 	c.State = state
